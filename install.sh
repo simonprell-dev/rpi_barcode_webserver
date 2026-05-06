@@ -2,7 +2,7 @@
 set -e
 
 if [ "$(id -u)" -ne 0 ]; then
-  echo "Bitte das Installationsskript mit sudo ausführen."
+  echo "Bitte das Installationsskript mit sudo ausfuehren."
   exit 1
 fi
 
@@ -12,12 +12,12 @@ apt update
 echo "Installiere Python3, venv und pip..."
 apt install -y python3 python3-pip python3-venv
 
-echo "Installiere Python-Abhängigkeiten..."
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 MEDIA_DIR="$SCRIPT_DIR/media"
 MAPPINGS_FILE="$SCRIPT_DIR/mappings.json"
 VENV_DIR="$SCRIPT_DIR/.venv"
 
+echo "Installiere Python-Abhaengigkeiten..."
 python3 -m venv "$VENV_DIR"
 "$VENV_DIR/bin/python" -m pip install --upgrade pip
 "$VENV_DIR/bin/pip" install -r "$SCRIPT_DIR/requirements.txt"
@@ -55,6 +55,18 @@ EOF
 systemctl daemon-reload
 systemctl enable --now rpi_barcode_webserver.service
 
+IP_ADDRESSES="$(hostname -I 2>/dev/null | xargs)"
+
 echo "Installiert. Projektverzeichnis: $SCRIPT_DIR"
 echo "Der systemd-Dienst rpi_barcode_webserver.service wurde aktiviert und gestartet."
-echo "Öffne im Browser: http://<raspberrypi-ip>:5000/display"
+if [ -n "$IP_ADDRESSES" ]; then
+  echo "Gefundene IP-Adresse(n): $IP_ADDRESSES"
+  for ip in $IP_ADDRESSES; do
+    echo "Display: http://$ip:5000/display"
+    echo "Admin:   http://$ip:5000/admin"
+  done
+else
+  echo "Keine IP-Adresse erkannt. Pruefe mit: hostname -I"
+  echo "Display: http://<raspberrypi-ip>:5000/display"
+  echo "Admin:   http://<raspberrypi-ip>:5000/admin"
+fi

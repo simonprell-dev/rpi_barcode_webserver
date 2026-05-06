@@ -1,0 +1,15 @@
+[Unit]
+Description=Raspberry Pi Barcode Webserver
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/path/to/rpi_barcode_webserver
+ExecStart=/usr/bin/env python3 /path/to/rpi_barcode_webserver/app.py
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Display</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+<body>
+  <div class="scanner-panel">
+    <div class="scanner-inner">
+      <h1>Barcode anzeigen</h1>
+      <form method="post" action="{{ url_for('display') }}" autocomplete="off">
+        <label for="barcode">Barcode:</label>
+        <input id="barcode" name="barcode" type="text" value="{{ barcode|default('') }}" autocomplete="off" autofocus>
+        <button type="submit">Anzeigen</button>
+      </form>
+      <p class="hint">Scanne den Barcode oder gib den Code manuell ein und drücke Enter.</p>
+    </div>
+  </div>
+
+  <div class="info-panel">
+    <div><strong>RPI IP(s):</strong> {{ local_ips|join(', ') }}</div>
+    <div><strong>Medienverzeichnis:</strong> {{ media_dir }}</div>
+    <div><strong>Dateien im Verzeichnis:</strong> {{ file_count }}</div>
+    <div><strong>Zuordnungen:</strong> {{ mapping_count }}</div>
+  </div>
+
+  {% if item %}
+    <div class="display-container">
+      {% if item.type == 'html' %}
+        <iframe src="{{ url_for('media_file', filename=item.filename) }}" class="display-frame" title="HTML Anzeige"></iframe>
+      {% elif item.type == 'video' %}
+        <video class="display-video" controls autoplay loop muted>
+          <source src="{{ url_for('media_file', filename=item.filename) }}">
+          Ihr Browser unterstützt dieses Videoformat nicht.
+        </video>
+      {% else %}
+        <img src="{{ url_for('media_file', filename=item.filename) }}" class="display-image" alt="Anzeige">
+      {% endif %}
+    </div>
+  {% endif %}
+
+  <div id="toast" class="toast {% if error %}show{% endif %}">{{ error or '' }}</div>
+
+  <script>
+    const toast = document.getElementById('toast');
+    const currentBarcode = {{ barcode|default('')|tojson }};
+    if (toast && toast.textContent.trim().length > 0) {
+      setTimeout(() => {
+        toast.classList.remove('show');
+      }, 3000);
+    }
+
+    async function pollStatus() {
+      try {
+        const response = await fetch("{{ url_for('status_json') }}", { cache: 'no-cache' });
+        if (!response.ok) {
+          return;
+        }
+        const status = await response.json();
+        const newBarcode = status.current_barcode || "";
+        if (newBarcode && newBarcode !== currentBarcode) {
+          window.location.href = "{{ url_for('display_barcode', barcode='__CHANGE__') }}".replace("__CHANGE__", encodeURIComponent(newBarcode));
+        }
+      } catch (error) {
+        console.debug('Status-Abfrage fehlgeschlagen', error);
+      }
+    }
+
+    setInterval(pollStatus, 3000);
+  </script>
+</body>
+</html>

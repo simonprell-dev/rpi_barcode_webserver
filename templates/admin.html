@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+<body class="admin-body">
+  <div class="admin-panel">
+    <h1>Admin-Bereich</h1>
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        <div class="flash-list">
+          {% for category, message in messages %}
+            <div class="flash {{ category }}">{{ message }}</div>
+          {% endfor %}
+        </div>
+      {% endif %}
+    {% endwith %}
+
+    <section class="admin-section">
+      <h2>Datei hochladen / Barcode anlernen</h2>
+      <form method="post" enctype="multipart/form-data" class="admin-form">
+        <label for="file">Datei auswählen</label>
+        <input id="file" name="file" type="file" accept="image/*,.html">
+
+        <label for="existing_file">Oder vorhandene Datei verwenden</label>
+        <select id="existing_file" name="existing_file">
+          <option value="">-- Datei wählen --</option>
+          {% for filename in media_files %}
+            <option value="{{ filename }}">{{ filename }}</option>
+          {% endfor %}
+        </select>
+
+        <label for="barcode">Barcode</label>
+        <input id="barcode" name="barcode" type="text" required autocomplete="off">
+
+        <button type="submit">Speichern</button>
+      </form>
+    </section>
+
+    <section class="admin-section">
+      <h2>Aktuelle Zuordnungen</h2>
+      {% if mappings %}
+        <table>
+          <thead>
+            <tr>
+              <th>Barcode</th>
+              <th>Datei</th>
+              <th>Aktion</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for barcode, filename in mappings.items() %}
+              <tr>
+                <td>{{ barcode }}</td>
+                <td>{{ filename }}</td>
+                <td>
+                  <form method="post" action="{{ url_for('admin_delete') }}" class="delete-form">
+                    <input type="hidden" name="delete_barcode" value="{{ barcode }}">
+                    <button type="submit">Löschen</button>
+                  </form>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      {% else %}
+        <p>Es sind noch keine Zuordnungen vorhanden.</p>
+      {% endif %}
+    </section>
+  </div>
+</body>
+</html>

@@ -40,7 +40,8 @@ ensure_environment()
 def load_mappings():
     try:
         with config.MAPPINGS_FILE.open("r", encoding="utf-8") as handle:
-            return json.load(handle)
+            data = json.load(handle)
+            return data if isinstance(data, dict) else {}
     except Exception:
         return {}
 
@@ -53,7 +54,13 @@ def save_mappings(mappings):
 def load_status():
     try:
         with config.STATUS_FILE.open("r", encoding="utf-8") as handle:
-            return json.load(handle)
+            data = json.load(handle)
+            if isinstance(data, dict):
+                return {
+                    "barcode": str(data.get("barcode", "") or ""),
+                    "updated": str(data.get("updated", "") or ""),
+                }
+            return {"barcode": "", "updated": ""}
     except Exception:
         return {"barcode": "", "updated": ""}
 
@@ -76,6 +83,8 @@ def load_settings():
         pass
 
     default_file = settings.get("default_file", "")
+    if not isinstance(default_file, str):
+        default_file = ""
     if default_file and not allowed_file(default_file):
         default_file = ""
 
@@ -103,7 +112,14 @@ def get_media_files():
     return sorted([f.name for f in config.MEDIA_DIR.iterdir() if f.is_file() and allowed_file(f.name)])
 
 
+def get_file_count():
+    ensure_environment()
+    return sum(1 for f in config.MEDIA_DIR.iterdir() if f.is_file())
+
+
 def allowed_file(filename):
+    if not isinstance(filename, str):
+        return False
     return Path(filename).suffix.lower() in config.ALLOWED_EXTENSIONS
 
 
@@ -158,7 +174,8 @@ def resolve_item_from_filename(filename):
 
 
 def resolve_item(barcode):
-    filename = load_mappings().get(barcode)
+    mappings = load_mappings()
+    filename = mappings.get(barcode) if isinstance(mappings, dict) else None
     return resolve_item_from_filename(filename)
 
 
@@ -238,7 +255,7 @@ def render_display_page(error=None):
         local_ips=get_local_ip_addresses(),
         media_dir=str(config.MEDIA_DIR),
         mapping_count=len(load_mappings()),
-        file_count=sum(1 for f in config.MEDIA_DIR.iterdir() if f.is_file()),
+        file_count=get_file_count(),
         idle_timeout_seconds=settings["idle_timeout_seconds"],
         default_file=settings.get("default_file", ""),
         display_mode=state["mode"],
@@ -296,7 +313,7 @@ def status_json():
         "settings_file": str(config.SETTINGS_FILE),
         "default_file": settings.get("default_file", ""),
         "idle_timeout_seconds": settings["idle_timeout_seconds"],
-        "file_count": sum(1 for f in config.MEDIA_DIR.iterdir() if f.is_file()),
+        "file_count": get_file_count(),
         "mappings_count": len(load_mappings()),
         "ip_addresses": get_local_ip_addresses(),
         "has_item": bool(state["item"]),

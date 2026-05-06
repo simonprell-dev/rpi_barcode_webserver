@@ -20,14 +20,36 @@
     {% endwith %}
 
     <section class="admin-section">
+      <h2>Display-Verhalten</h2>
+      <form method="post" class="admin-form">
+        <input type="hidden" name="action" value="settings">
+
+        <label for="default_file">Default-Medium fuer Start und Inaktivitaet</label>
+        <select id="default_file" name="default_file">
+          <option value="">-- Kein Default-Medium --</option>
+          {% for filename in media_files %}
+            <option value="{{ filename }}" {% if settings.default_file == filename %}selected{% endif %}>{{ filename }}</option>
+          {% endfor %}
+        </select>
+
+        <label for="idle_timeout_minutes">Nach wie vielen Minuten ohne Scan zur Default-Seite wechseln?</label>
+        <input id="idle_timeout_minutes" name="idle_timeout_minutes" type="number" min="1" value="{{ idle_timeout_minutes }}" required>
+
+        <button type="submit">Display-Einstellungen speichern</button>
+      </form>
+    </section>
+
+    <section class="admin-section">
       <h2>Datei hochladen / Barcode anlernen</h2>
       <form method="post" enctype="multipart/form-data" class="admin-form">
-        <label for="file">Datei auswählen</label>
-        <input id="file" name="file" type="file" accept="image/*,.html">
+        <input type="hidden" name="action" value="mapping">
+
+        <label for="file">Datei auswaehlen</label>
+        <input id="file" name="file" type="file" accept="image/*,video/*,.pdf,.html">
 
         <label for="existing_file">Oder vorhandene Datei verwenden</label>
         <select id="existing_file" name="existing_file">
-          <option value="">-- Datei wählen --</option>
+          <option value="">-- Datei waehlen --</option>
           {% for filename in media_files %}
             <option value="{{ filename }}">{{ filename }}</option>
           {% endfor %}
@@ -59,7 +81,7 @@
                 <td>
                   <form method="post" action="{{ url_for('admin_delete') }}" class="delete-form">
                     <input type="hidden" name="delete_barcode" value="{{ barcode }}">
-                    <button type="submit">Löschen</button>
+                    <button type="submit">Loeschen</button>
                   </form>
                 </td>
               </tr>

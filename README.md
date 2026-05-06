@@ -6,9 +6,11 @@ Dieses Projekt stellt einen einfachen Webserver fuer Raspberry Pi OS bereit, der
 
 - `/display`: Barcode eingeben oder scannen und den zugeordneten Inhalt anzeigen
 - `/admin`: Medien hochladen und Barcodes zuordnen
+- Scanner-Eingabe ist fuer den Display-Modus versteckt und fuer einen direkt am Raspberry Pi angeschlossenen Barcode-Scanner optimiert
 - Unterstuetzt Bilder, Videos, PDF und HTML
 - Ungueltige Barcodes werden 3 Sekunden lang als Popup angezeigt
 - Alle offenen Display-Seiten aktualisieren sich automatisch bei neuem Barcode
+- Beim Start und nach Inaktivitaet wechselt das Display automatisch auf eine konfigurierbare Default-Seite
 - Anzeige der lokalen Raspberry-Pi-IP(s), Dateianzahl und Zuordnungen auf der Display-Seite
 - Fester Medienordner `media/` im Projektverzeichnis
 
@@ -143,7 +145,9 @@ Diese Links kannst du dann auf jedem Geraet im selben Netzwerk im Browser oeffne
 - Display-Seite im Browser oeffnen: `http://<raspberrypi-ip>:5000/display`
 - Admin-Seite im Browser oeffnen: `http://<raspberrypi-ip>:5000/admin`
 - Im Admin-Bereich Medien hochladen oder vorhandene Dateien einem Barcode zuordnen
-- Auf der Display-Seite Barcode scannen oder manuell eingeben und mit `Enter` bestaetigen
+- Optional im Admin-Bereich ein Default-Medium und die Inaktivitaetszeit einstellen
+- Im Display-Modus gibt es kein sichtbares Eingabefeld
+- Der Scanner kann direkt am Raspberry Pi angeschlossen bleiben und unsichtbar in die Display-Seite einscannen
 - Bei gueltigem Barcode wird das zugeordnete Medium angezeigt
 - Bei ungueltigem Barcode erscheint unten rechts kurz ein Hinweis
 - Offene Display-Seiten erkennen neue Barcodes automatisch und laden die passende Anzeige nach
@@ -155,6 +159,8 @@ Im Admin-Bereich kannst du:
 
 - neue Dateien hochladen
 - vorhandene Dateien einem Barcode zuordnen
+- ein Default-Medium fuer Start und Leerlauf festlegen
+- die Inaktivitaetszeit in Minuten konfigurieren, zum Beispiel `5`
 - bestehende Barcode-Zuordnungen loeschen
 
 Erlaubte Dateitypen:

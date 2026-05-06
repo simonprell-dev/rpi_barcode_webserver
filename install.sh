@@ -9,8 +9,8 @@ fi
 echo "Aktualisiere Paketquellen..."
 apt update
 
-echo "Installiere Python3, venv und pip..."
-apt install -y python3 python3-pip python3-venv
+echo "Installiere Python3, venv, pip und qrencode..."
+apt install -y python3 python3-pip python3-venv qrencode
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 MEDIA_DIR="$SCRIPT_DIR/media"
@@ -32,17 +32,19 @@ PY
 fi
 
 chmod +x "$SCRIPT_DIR/app.py"
+chmod +x "$SCRIPT_DIR/start_server.sh"
 
 SERVICE_FILE="/etc/systemd/system/rpi_barcode_webserver.service"
 cat > "$SERVICE_FILE" <<EOF
 [Unit]
 Description=Raspberry Pi Barcode Webserver
-After=network.target
+Wants=network-online.target
+After=network-online.target
 
 [Service]
 Type=simple
 WorkingDirectory=$SCRIPT_DIR
-ExecStart=$VENV_DIR/bin/python $SCRIPT_DIR/app.py
+ExecStart=/bin/bash $SCRIPT_DIR/start_server.sh
 Restart=always
 RestartSec=5
 StandardOutput=journal
@@ -55,18 +57,8 @@ EOF
 systemctl daemon-reload
 systemctl enable --now rpi_barcode_webserver.service
 
-IP_ADDRESSES="$(hostname -I 2>/dev/null | xargs)"
-
 echo "Installiert. Projektverzeichnis: $SCRIPT_DIR"
 echo "Der systemd-Dienst rpi_barcode_webserver.service wurde aktiviert und gestartet."
-if [ -n "$IP_ADDRESSES" ]; then
-  echo "Gefundene IP-Adresse(n): $IP_ADDRESSES"
-  for ip in $IP_ADDRESSES; do
-    echo "Display: http://$ip:5000/display"
-    echo "Admin:   http://$ip:5000/admin"
-  done
-else
-  echo "Keine IP-Adresse erkannt. Pruefe mit: hostname -I"
-  echo "Display: http://<raspberrypi-ip>:5000/display"
-  echo "Admin:   http://<raspberrypi-ip>:5000/admin"
-fi
+REPORT_ONLY=1 /bin/bash "$SCRIPT_DIR/start_server.sh" >/tmp/rpi_barcode_webserver_startup_preview.log 2>&1 || true
+sed '/^$/d' /tmp/rpi_barcode_webserver_startup_preview.log | sed '/^\* Serving Flask app/d;/^\* Debug mode/d;/^WARNING: This is a development server/d;/^\* Running on /d;/^Press CTRL+C to quit/d'
+rm -f /tmp/rpi_barcode_webserver_startup_preview.log

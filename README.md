@@ -22,10 +22,11 @@ cd rpi_barcode_webserver
 sudo bash install.sh
 ```
 
-Nach der Installation zeigt das Skript die echte lokale IP-Adresse sowie beide Links an:
+Nach der Installation zeigt das Skript die echte lokale LAN- oder WLAN-IP-Adresse sowie beide Links an:
 
-- `http://<raspberrypi-ip>:5000/display`
-- `http://<raspberrypi-ip>:5000/admin`
+- `Display: http://<erkannte-ip>:5000/display`
+- `Admin:   http://<erkannte-ip>:5000/admin`
+- einen QR-Code fuer die Display-Seite direkt im Terminal
 
 ## Komplette Schritt-fuer-Schritt-Anleitung
 
@@ -119,7 +120,9 @@ Das Skript:
 - installiert die Python-Abhaengigkeiten aus `requirements.txt`
 - legt `media/`, `mappings.json` und den systemd-Dienst an
 - aktiviert und startet den Dienst automatisch
-- zeigt danach die echte lokale IP-Adresse und die Browser-Links an
+- erkennt die echte lokale LAN- oder WLAN-IP-Adresse
+- zeigt danach die Display- und Admin-Links an
+- zeichnet einen QR-Code fuer die Display-Seite direkt in die Bash
 
 ### 9. Im Browser oeffnen
 
@@ -129,6 +132,8 @@ Nach erfolgreicher Installation siehst du im Terminal so etwas in der Art:
 Gefundene IP-Adresse(n): 192.168.178.50
 Display: http://192.168.178.50:5000/display
 Admin:   http://192.168.178.50:5000/admin
+QR-Code fuer die Display-Seite:
+[ASCII-QR-Code im Terminal]
 ```
 
 Diese Links kannst du dann auf jedem Geraet im selben Netzwerk im Browser oeffnen.
@@ -142,6 +147,7 @@ Diese Links kannst du dann auf jedem Geraet im selben Netzwerk im Browser oeffne
 - Bei gueltigem Barcode wird das zugeordnete Medium angezeigt
 - Bei ungueltigem Barcode erscheint unten rechts kurz ein Hinweis
 - Offene Display-Seiten erkennen neue Barcodes automatisch und laden die passende Anzeige nach
+- Wenn der Raspberry Pi automatisch startet, landen dieselben Link-Infos und der QR-Code im Service-Log
 
 ## Admin-Bereich
 
@@ -160,10 +166,10 @@ Erlaubte Dateitypen:
 
 ## Manuell starten
 
-Falls du den Dienst nicht nutzen willst, kannst du den Server auch direkt starten:
+Falls du den Dienst nicht nutzen willst, kannst du den Server mit derselben IP- und QR-Ausgabe direkt starten:
 
 ```bash
-.venv/bin/python app.py
+bash start_server.sh
 ```
 
 Der Server laeuft standardmaessig auf Port `5000`.
@@ -196,6 +202,13 @@ Logs anzeigen:
 journalctl -u rpi_barcode_webserver.service -f
 ```
 
+Darueber siehst du auch nach einem normalen automatischen Start wieder:
+
+- die erkannte LAN- oder WLAN-IP
+- den Display-Link
+- den Admin-Link
+- den QR-Code fuer die Display-Seite
+
 ## Update-Prozess
 
 Wenn du spaeter Aenderungen aus GitHub uebernehmen willst:
@@ -205,6 +218,8 @@ cd ~/rpi_barcode_webserver
 git pull
 sudo bash install.sh
 ```
+
+Auch bei diesem Update-Lauf werden die aktuell erkannte IP und der QR-Code wieder neu ausgegeben.
 
 ## Projektstruktur
 

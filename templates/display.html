@@ -10,25 +10,6 @@
   <input id="scannerInput" class="scanner-capture" type="text" inputmode="none" autocomplete="off" autofocus aria-hidden="true">
 
   <div class="display-shell">
-    <div class="display-header">
-      <div>
-        <h1>Barcode Display</h1>
-        {% if display_mode == "barcode" %}
-          <p>Aktive Anzeige fuer Barcode {{ barcode }}</p>
-        {% elif item %}
-          <p>Standardseite aktiv. Der Scanner kann direkt am Raspberry Pi benutzt werden.</p>
-        {% else %}
-          <p>Keine Standardseite konfiguriert. Bitte im Admin-Bereich ein Default-Medium festlegen.</p>
-        {% endif %}
-      </div>
-      <div class="display-meta">
-        <div><strong>RPI IP(s):</strong> {{ local_ips|join(', ') }}</div>
-        <div><strong>Default:</strong> {{ default_file or 'nicht gesetzt' }}</div>
-        <div><strong>Idle-Timeout:</strong> {{ (idle_timeout_seconds // 60) }} Minute(n)</div>
-        <div><strong>Admin:</strong> <span>/admin</span></div>
-      </div>
-    </div>
-
     {% if item %}
       <div class="display-container has-content">
         {% if item.type == 'html' %}
@@ -64,6 +45,9 @@
     let lastKnownBarcode = {{ barcode|default('')|tojson }};
     let lastKnownStateToken = {{ (display_mode ~ '|' ~ barcode ~ '|' ~ default_file ~ '|' ~ state_updated)|tojson }};
     let submitting = false;
+    let scannerBuffer = '';
+    let scannerTimer = null;
+    const statusPollIntervalMs = 500;
 
     function focusScanner() {
       if (!scannerInput) {
@@ -88,6 +72,7 @@
       const barcode = value.trim();
       if (!barcode || submitting) {
         scannerInput.value = '';
+        clearScannerBuffer();
         return;
       }
 
@@ -114,8 +99,17 @@
         showToast('Barcode konnte nicht verarbeitet werden.');
       } finally {
         scannerInput.value = '';
+        clearScannerBuffer();
         submitting = false;
         focusScanner();
+      }
+    }
+
+    function clearScannerBuffer() {
+      scannerBuffer = '';
+      if (scannerTimer) {
+        window.clearTimeout(scannerTimer);
+        scannerTimer = null;
       }
     }
 
@@ -156,6 +150,28 @@
       }
     });
 
+    document.addEventListener('keydown', (event) => {
+      if (event.ctrlKey || event.metaKey || event.altKey || document.activeElement === scannerInput) {
+        return;
+      }
+
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        submitBarcode(scannerBuffer);
+        return;
+      }
+
+      if (event.key.length !== 1) {
+        return;
+      }
+
+      scannerBuffer += event.key;
+      if (scannerTimer) {
+        window.clearTimeout(scannerTimer);
+      }
+      scannerTimer = window.setTimeout(clearScannerBuffer, 120);
+    });
+
     window.addEventListener('click', focusScanner);
     window.addEventListener('focus', focusScanner);
     document.addEventListener('visibilitychange', () => {
@@ -166,7 +182,7 @@
 
     focusScanner();
     window.setInterval(focusScanner, 2000);
-    window.setInterval(pollStatus, 3000);
+    window.setInterval(pollStatus, statusPollIntervalMs);
   </script>
 </body>
 </html>

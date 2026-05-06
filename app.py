@@ -11,12 +11,18 @@ from pathlib import Path
 from flask import Flask, flash, jsonify, redirect, render_template, request, send_from_directory, url_for
 from werkzeug.utils import secure_filename
 
+from barcode_input import BarcodeInputListener
 import config
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("FLASK_SECRET", "change-this-secret-key")
 app.config["TEMPLATES_AUTO_RELOAD"] = True
 app.config["SEND_FILE_MAX_AGE_DEFAULT"] = 0
+
+
+class StatusPollLogFilter(logging.Filter):
+    def filter(self, record):
+        return "/status.json" not in record.getMessage()
 
 
 def default_settings():
@@ -57,8 +63,15 @@ def configure_logging():
     app.logger.addHandler(file_handler)
     app.logger.setLevel(logging.INFO)
 
+    werkzeug_logger = logging.getLogger("werkzeug")
+    if not any(isinstance(log_filter, StatusPollLogFilter) for log_filter in werkzeug_logger.filters):
+        werkzeug_logger.addFilter(StatusPollLogFilter())
+
 
 configure_logging()
+
+barcode_input_listener = None
+local_ip_cache = {"addresses": None, "expires_at": None}
 
 
 def load_mappings():
@@ -148,6 +161,10 @@ def allowed_file(filename):
 
 
 def get_local_ip_addresses():
+    now = datetime.now(timezone.utc)
+    if local_ip_cache["addresses"] and local_ip_cache["expires_at"] and now < local_ip_cache["expires_at"]:
+        return local_ip_cache["addresses"]
+
     addresses = set()
     try:
         hostname = socket.gethostname()
@@ -166,7 +183,9 @@ def get_local_ip_addresses():
             pass
     if not addresses:
         addresses.add("127.0.0.1")
-    return sorted(addresses)
+    local_ip_cache["addresses"] = sorted(addresses)
+    local_ip_cache["expires_at"] = now + timedelta(seconds=60)
+    return local_ip_cache["addresses"]
 
 
 def parse_timestamp(value):
@@ -197,10 +216,37 @@ def resolve_item_from_filename(filename):
     }
 
 
-def resolve_item(barcode):
-    mappings = load_mappings()
+def resolve_item(barcode, mappings=None):
+    mappings = mappings if mappings is not None else load_mappings()
     filename = mappings.get(barcode) if isinstance(mappings, dict) else None
     return resolve_item_from_filename(filename)
+
+
+def activate_barcode(barcode, source="web"):
+    item = resolve_item(barcode)
+    if not item:
+        app.logger.warning("Barcode from %s not recognized: %s", source, barcode)
+        return False
+    save_status(barcode)
+    app.logger.info("Barcode from %s activated: %s", source, barcode)
+    return True
+
+
+def start_barcode_input_listener():
+    global barcode_input_listener
+    if os.environ.get("BARCODE_INPUT_ENABLED", "1").lower() in {"0", "false", "no"}:
+        app.logger.info("Server-side barcode input listener is disabled")
+        return
+    if barcode_input_listener:
+        return
+
+    device_path = os.environ.get("BARCODE_SCANNER_DEVICE", "").strip() or None
+    barcode_input_listener = BarcodeInputListener(
+        on_barcode=lambda barcode: activate_barcode(barcode, source="scanner"),
+        logger=app.logger,
+        device_path=device_path,
+    )
+    barcode_input_listener.start()
 
 
 def get_default_item(settings=None):
@@ -208,7 +254,7 @@ def get_default_item(settings=None):
     return resolve_item_from_filename(settings.get("default_file", ""))
 
 
-def get_active_display_state(settings=None, status=None):
+def get_active_display_state(settings=None, status=None, mappings=None):
     settings = settings or load_settings()
     status = status or load_status()
     barcode = (status.get("barcode") or "").strip()
@@ -219,7 +265,7 @@ def get_active_display_state(settings=None, status=None):
     if barcode and updated_at:
         expires_at = updated_at + timedelta(seconds=settings["idle_timeout_seconds"])
         if datetime.now(timezone.utc) < expires_at:
-            active_item = resolve_item(barcode)
+            active_item = resolve_item(barcode, mappings=mappings)
             if active_item:
                 active_barcode = barcode
 
@@ -302,9 +348,7 @@ def display():
 
 @app.route("/display/<barcode>")
 def display_barcode(barcode):
-    item = resolve_item(barcode)
-    if item:
-        save_status(barcode)
+    if activate_barcode(barcode, source="url"):
         return redirect(url_for("display"))
     return render_display_page(error="Barcode nicht erkannt.")
 
@@ -315,18 +359,17 @@ def scan_barcode():
     if not barcode:
         return jsonify({"ok": False, "error": "Bitte Barcode scannen oder eingeben."}), 400
 
-    item = resolve_item(barcode)
-    if not item:
+    if not activate_barcode(barcode, source="web"):
         return jsonify({"ok": False, "error": "Barcode nicht erkannt."}), 404
 
-    save_status(barcode)
     return jsonify({"ok": True, "redirect_url": url_for("display"), "barcode": barcode})
 
 
 @app.route("/status.json")
 def status_json():
     settings = load_settings()
-    state = get_active_display_state(settings=settings)
+    mappings = load_mappings()
+    state = get_active_display_state(settings=settings, mappings=mappings)
     return jsonify({
         "current_barcode": state["barcode"],
         "display_mode": state["mode"],
@@ -338,7 +381,7 @@ def status_json():
         "default_file": settings.get("default_file", ""),
         "idle_timeout_seconds": settings["idle_timeout_seconds"],
         "file_count": get_file_count(),
-        "mappings_count": len(load_mappings()),
+        "mappings_count": len(mappings),
         "ip_addresses": get_local_ip_addresses(),
         "has_item": bool(state["item"]),
     })
@@ -471,4 +514,5 @@ def handle_unexpected_error(error):
 
 if __name__ == "__main__":
     ensure_environment()
+    start_barcode_input_listener()
     app.run(host="0.0.0.0", port=5000)

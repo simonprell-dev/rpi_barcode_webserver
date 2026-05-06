@@ -46,13 +46,14 @@ class FirstRunSmokeTest(unittest.TestCase):
         admin_html = admin.get_data(as_text=True)
         status_payload = status.get_json()
 
-        self.assertIn("Keine Standardseite konfiguriert", display_html)
+        self.assertNotIn("Barcode Display", display_html)
+        self.assertIn("Bereit fuer den naechsten Scan", display_html)
         self.assertIn("Es sind noch keine Zuordnungen vorhanden.", admin_html)
         self.assertEqual(status_payload["current_barcode"], "")
         self.assertEqual(status_payload["display_mode"], "default")
         self.assertEqual(status_payload["default_file"], "")
         self.assertEqual(status_payload["mappings_count"], 0)
-        self.assertEqual(status_payload["file_count"], 0)
+        self.assertEqual(status_payload["file_count"], len(self.media_backup))
 
     def test_first_run_created_default_json_files(self):
         mappings = json.loads(config.MAPPINGS_FILE.read_text(encoding="utf-8"))

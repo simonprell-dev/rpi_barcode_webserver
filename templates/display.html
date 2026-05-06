@@ -62,6 +62,7 @@
     const scanEndpoint = {{ scan_endpoint|tojson }};
     const displayUrl = {{ display_url|tojson }};
     let lastKnownBarcode = {{ barcode|default('')|tojson }};
+    let lastKnownStateToken = {{ (display_mode ~ '|' ~ barcode ~ '|' ~ default_file ~ '|' ~ state_updated)|tojson }};
     let submitting = false;
 
     function focusScanner() {
@@ -126,8 +127,15 @@
         }
         const status = await response.json();
         const nextBarcode = status.current_barcode || '';
-        if (nextBarcode !== lastKnownBarcode) {
+        const nextStateToken = [
+          status.display_mode || '',
+          nextBarcode,
+          status.default_file || '',
+          status.updated || '',
+        ].join('|');
+        if (nextStateToken !== lastKnownStateToken) {
           lastKnownBarcode = nextBarcode;
+          lastKnownStateToken = nextStateToken;
           window.location.href = status.display_url || displayUrl;
         }
       } catch (error) {

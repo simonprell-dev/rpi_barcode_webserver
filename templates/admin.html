@@ -20,6 +20,29 @@
     {% endwith %}
 
     <section class="admin-section">
+      <h2>Aktuelle Anzeige</h2>
+      <div class="status-grid">
+        <div class="status-card">
+          <span class="status-label">Modus</span>
+          <strong>{{ 'Barcode aktiv' if active_state.mode == 'barcode' else 'Default-Seite' }}</strong>
+        </div>
+        <div class="status-card">
+          <span class="status-label">Aktiver Barcode</span>
+          <strong>{{ active_state.barcode or 'kein aktiver Barcode' }}</strong>
+        </div>
+        <div class="status-card">
+          <span class="status-label">Aktive Datei</span>
+          <strong>{{ active_state.item.filename if active_state.item else (settings.default_file or 'keine Datei aktiv') }}</strong>
+        </div>
+        <div class="status-card">
+          <span class="status-label">Timeout</span>
+          <strong>{{ idle_timeout_minutes }} Minute(n)</strong>
+        </div>
+      </div>
+      <p class="section-note">Alle offenen <code>/display</code>-Fenster folgen immer demselben aktiven Zustand.</p>
+    </section>
+
+    <section class="admin-section">
       <h2>Display-Verhalten</h2>
       <form method="post" class="admin-form">
         <input type="hidden" name="action" value="settings">
@@ -41,7 +64,7 @@
 
     <section class="admin-section">
       <h2>Datei hochladen / Barcode anlernen</h2>
-      <form method="post" enctype="multipart/form-data" class="admin-form">
+      <form method="post" enctype="multipart/form-data" class="admin-form" id="mappingForm">
         <input type="hidden" name="action" value="mapping">
 
         <label for="file">Datei auswaehlen</label>
@@ -56,31 +79,39 @@
         </select>
 
         <label for="barcode">Barcode</label>
-        <input id="barcode" name="barcode" type="text" required autocomplete="off">
+        <input id="barcode" name="barcode" type="text" required autocomplete="off" autofocus>
+        <p class="section-note">Scanner am Raspberry Pi kann direkt in dieses Feld einlesen. Wenn kein Feld aktiv ist, wird der Scan automatisch hier eingetragen.</p>
 
         <button type="submit">Speichern</button>
       </form>
     </section>
 
     <section class="admin-section">
-      <h2>Aktuelle Zuordnungen</h2>
-      {% if mappings %}
+      <h2>Alle Folien und Barcodes</h2>
+      {% if mapping_rows %}
         <table>
           <thead>
             <tr>
+              <th>Status</th>
               <th>Barcode</th>
               <th>Datei</th>
-              <th>Aktion</th>
+              <th>Aktionen</th>
             </tr>
           </thead>
           <tbody>
-            {% for barcode, filename in mappings.items() %}
-              <tr>
-                <td>{{ barcode }}</td>
-                <td>{{ filename }}</td>
-                <td>
-                  <form method="post" action="{{ url_for('admin_delete') }}" class="delete-form">
-                    <input type="hidden" name="delete_barcode" value="{{ barcode }}">
+            {% for row in mapping_rows %}
+              <tr class="{% if row.is_active %}active-row{% endif %}">
+                <td>{% if row.is_active %}Aktiv{% else %}-{% endif %}</td>
+                <td>{{ row.barcode }}</td>
+                <td>{{ row.filename }}</td>
+                <td class="actions-cell">
+                  <form method="post" class="inline-form">
+                    <input type="hidden" name="action" value="activate">
+                    <input type="hidden" name="barcode" value="{{ row.barcode }}">
+                    <button type="submit">Jetzt anzeigen</button>
+                  </form>
+                  <form method="post" action="{{ url_for('admin_delete') }}" class="inline-form delete-form">
+                    <input type="hidden" name="delete_barcode" value="{{ row.barcode }}">
                     <button type="submit">Loeschen</button>
                   </form>
                 </td>
@@ -93,5 +124,84 @@
       {% endif %}
     </section>
   </div>
+
+  <script>
+    const barcodeInput = document.getElementById('barcode');
+    const fileInput = document.getElementById('file');
+    const existingFileSelect = document.getElementById('existing_file');
+    let scannerBuffer = '';
+    let scannerTimer = null;
+
+    function focusBarcodeInput() {
+      if (!barcodeInput) {
+        return;
+      }
+      if (document.activeElement === barcodeInput) {
+        return;
+      }
+      barcodeInput.focus({ preventScroll: true });
+    }
+
+    function clearScannerBuffer() {
+      scannerBuffer = '';
+      if (scannerTimer) {
+        window.clearTimeout(scannerTimer);
+        scannerTimer = null;
+      }
+    }
+
+    function isTypingField(element) {
+      return element && (
+        element.tagName === 'INPUT' ||
+        element.tagName === 'TEXTAREA' ||
+        element.tagName === 'SELECT'
+      );
+    }
+
+    document.addEventListener('keydown', (event) => {
+      if (event.ctrlKey || event.metaKey || event.altKey) {
+        return;
+      }
+
+      if (event.key === 'Enter') {
+        if (scannerBuffer.trim()) {
+          barcodeInput.value = scannerBuffer.trim();
+          clearScannerBuffer();
+          focusBarcodeInput();
+        }
+        return;
+      }
+
+      if (event.key.length !== 1) {
+        return;
+      }
+
+      const activeElement = document.activeElement;
+      if (activeElement === barcodeInput) {
+        return;
+      }
+
+      if (isTypingField(activeElement) && activeElement !== barcodeInput) {
+        return;
+      }
+
+      scannerBuffer += event.key;
+      if (scannerTimer) {
+        window.clearTimeout(scannerTimer);
+      }
+      scannerTimer = window.setTimeout(clearScannerBuffer, 120);
+    });
+
+    window.addEventListener('focus', focusBarcodeInput);
+    window.addEventListener('click', (event) => {
+      if (!isTypingField(event.target)) {
+        focusBarcodeInput();
+      }
+    });
+    fileInput.addEventListener('change', focusBarcodeInput);
+    existingFileSelect.addEventListener('change', focusBarcodeInput);
+
+    focusBarcodeInput();
+  </script>
 </body>
 </html>

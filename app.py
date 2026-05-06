@@ -98,6 +98,11 @@ def save_settings(settings):
         json.dump(clean_settings, handle, indent=2, ensure_ascii=False)
 
 
+def get_media_files():
+    ensure_environment()
+    return sorted([f.name for f in config.MEDIA_DIR.iterdir() if f.is_file() and allowed_file(f.name)])
+
+
 def allowed_file(filename):
     return Path(filename).suffix.lower() in config.ALLOWED_EXTENSIONS
 
@@ -182,13 +187,43 @@ def get_active_display_state(settings=None, status=None):
             "mode": "barcode",
             "barcode": active_barcode,
             "item": active_item,
+            "updated": status.get("updated", ""),
         }
 
     return {
         "mode": "default",
         "barcode": "",
         "item": get_default_item(settings),
+        "updated": status.get("updated", ""),
     }
+
+
+def build_admin_rows(mappings, active_barcode):
+    rows = []
+    for barcode, filename in sorted(mappings.items()):
+        rows.append({
+            "barcode": barcode,
+            "filename": filename,
+            "is_active": barcode == active_barcode,
+        })
+    return rows
+
+
+def render_admin_page(mappings=None, settings=None):
+    ensure_environment()
+    mappings = mappings if mappings is not None else load_mappings()
+    settings = settings or load_settings()
+    media_files = get_media_files()
+    active_state = get_active_display_state(settings=settings)
+    return render_template(
+        "admin.html",
+        mappings=mappings,
+        mapping_rows=build_admin_rows(mappings, active_state["barcode"]),
+        media_files=media_files,
+        settings=settings,
+        idle_timeout_minutes=max(1, settings["idle_timeout_seconds"] // 60),
+        active_state=active_state,
+    )
 
 
 def render_display_page(error=None):
@@ -207,6 +242,7 @@ def render_display_page(error=None):
         idle_timeout_seconds=settings["idle_timeout_seconds"],
         default_file=settings.get("default_file", ""),
         display_mode=state["mode"],
+        state_updated=state.get("updated", ""),
         status_endpoint=url_for("status_json"),
         scan_endpoint=url_for("scan_barcode"),
         display_url=url_for("display"),
@@ -254,6 +290,7 @@ def status_json():
         "current_barcode": state["barcode"],
         "display_mode": state["mode"],
         "display_url": url_for("display"),
+        "updated": state.get("updated", ""),
         "media_dir": str(config.MEDIA_DIR),
         "mappings_file": str(config.MAPPINGS_FILE),
         "settings_file": str(config.SETTINGS_FILE),
@@ -276,7 +313,7 @@ def admin():
     ensure_environment()
     mappings = load_mappings()
     settings = load_settings()
-    media_files = sorted([f.name for f in config.MEDIA_DIR.iterdir() if f.is_file() and allowed_file(f.name)])
+    media_files = get_media_files()
 
     if request.method == "POST":
         action = request.form.get("action", "mapping")
@@ -287,30 +324,33 @@ def admin():
 
             if default_file and default_file not in media_files:
                 flash("Die ausgewaehlte Default-Datei existiert nicht.", "error")
-                return render_template(
-                    "admin.html",
-                    mappings=mappings,
-                    media_files=media_files,
-                    settings=settings,
-                    idle_timeout_minutes=max(1, settings["idle_timeout_seconds"] // 60),
-                )
+                return render_admin_page(mappings=mappings, settings=settings)
 
             try:
                 idle_timeout_minutes_value = int(idle_timeout_minutes)
             except ValueError:
                 flash("Bitte eine gueltige Zahl fuer die Inaktivitaetszeit eingeben.", "error")
-                return render_template(
-                    "admin.html",
-                    mappings=mappings,
-                    media_files=media_files,
-                    settings=settings,
-                    idle_timeout_minutes=max(1, settings["idle_timeout_seconds"] // 60),
-                )
+                return render_admin_page(mappings=mappings, settings=settings)
 
             settings["default_file"] = default_file
             settings["idle_timeout_seconds"] = max(1, idle_timeout_minutes_value) * 60
             save_settings(settings)
             flash("Display-Standardseite und Inaktivitaetszeit wurden gespeichert.", "success")
+            return redirect(url_for("admin"))
+
+        if action == "activate":
+            barcode = request.form.get("barcode", "").strip()
+            if not barcode:
+                flash("Bitte einen Barcode zum Aktivieren angeben.", "error")
+                return render_admin_page(mappings=mappings, settings=settings)
+
+            item = resolve_item(barcode)
+            if not item:
+                flash("Der Barcode ist keiner Datei zugeordnet.", "error")
+                return render_admin_page(mappings=mappings, settings=settings)
+
+            save_status(barcode)
+            flash(f"Anzeige fuer Barcode '{barcode}' aktiviert.", "success")
             return redirect(url_for("admin"))
 
         barcode = request.form.get("barcode", "").strip()
@@ -319,13 +359,7 @@ def admin():
 
         if not barcode:
             flash("Bitte einen Barcode eingeben.", "error")
-            return render_template(
-                "admin.html",
-                mappings=mappings,
-                media_files=media_files,
-                settings=settings,
-                idle_timeout_minutes=max(1, settings["idle_timeout_seconds"] // 60),
-            )
+            return render_admin_page(mappings=mappings, settings=settings)
 
         target_filename = None
 
@@ -333,13 +367,7 @@ def admin():
             filename = secure_filename(upload.filename)
             if not allowed_file(filename):
                 flash("Ungueltiger Dateityp. Erlaubt sind Bilder, Videos, PDF und HTML.", "error")
-                return render_template(
-                    "admin.html",
-                    mappings=mappings,
-                    media_files=media_files,
-                    settings=settings,
-                    idle_timeout_minutes=max(1, settings["idle_timeout_seconds"] // 60),
-                )
+                return render_admin_page(mappings=mappings, settings=settings)
 
             target = config.MEDIA_DIR / filename
             counter = 1
@@ -356,35 +384,17 @@ def admin():
                 target_filename = existing_file
             else:
                 flash("Die ausgewaehlte Datei existiert nicht.", "error")
-                return render_template(
-                    "admin.html",
-                    mappings=mappings,
-                    media_files=media_files,
-                    settings=settings,
-                    idle_timeout_minutes=max(1, settings["idle_timeout_seconds"] // 60),
-                )
+                return render_admin_page(mappings=mappings, settings=settings)
         else:
             flash("Bitte eine Datei auswaehlen oder hochladen.", "error")
-            return render_template(
-                "admin.html",
-                mappings=mappings,
-                media_files=media_files,
-                settings=settings,
-                idle_timeout_minutes=max(1, settings["idle_timeout_seconds"] // 60),
-            )
+            return render_admin_page(mappings=mappings, settings=settings)
 
         mappings[barcode] = target_filename
         save_mappings(mappings)
         flash(f"Barcode '{barcode}' mit '{target_filename}' verknuepft.", "success")
         return redirect(url_for("admin"))
 
-    return render_template(
-        "admin.html",
-        mappings=mappings,
-        media_files=media_files,
-        settings=settings,
-        idle_timeout_minutes=max(1, settings["idle_timeout_seconds"] // 60),
-    )
+    return render_admin_page(mappings=mappings, settings=settings)
 
 
 @app.route("/admin/delete", methods=["POST"])

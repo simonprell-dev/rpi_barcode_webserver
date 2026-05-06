@@ -160,6 +160,31 @@ html, body {
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.35);
 }
 
+.status-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 14px;
+}
+
+.status-card {
+  padding: 14px;
+  border-radius: 10px;
+  background: #111;
+  border: 1px solid #2c2c2c;
+}
+
+.status-label {
+  display: block;
+  margin-bottom: 8px;
+  color: #9aa7b5;
+  font-size: 0.9rem;
+}
+
+.section-note {
+  margin: 12px 0 0;
+  color: #c9d2db;
+}
+
 .admin-form label,
 .admin-form input,
 .admin-form select,
@@ -203,6 +228,33 @@ table td {
   text-align: left;
   padding: 10px;
   border-bottom: 1px solid #2b2b2b;
+  vertical-align: middle;
+}
+
+.active-row {
+  background: rgba(31, 127, 255, 0.12);
+}
+
+.actions-cell {
+  white-space: nowrap;
+}
+
+.inline-form {
+  display: inline-block;
+  margin-right: 8px;
+}
+
+.inline-form:last-child {
+  margin-right: 0;
+}
+
+.inline-form button {
+  padding: 8px 12px;
+  border: none;
+  border-radius: 5px;
+  background: #1f7fff;
+  color: #fff;
+  cursor: pointer;
 }
 
 .delete-form button {

@@ -1,0 +1,8 @@
+.venv/
+media/
+mappings.json
+status.json
+settings.json
+app.py.local-backup
+__pycache__/
+*.pyc

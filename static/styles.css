@@ -192,6 +192,15 @@ html, body {
   color: #c9d2db;
 }
 
+.learning-note {
+  margin: 0 0 14px;
+  padding: 10px 12px;
+  border-left: 3px solid #1f7fff;
+  background: #141f2d;
+  color: #d9e4ef;
+  line-height: 1.45;
+}
+
 .admin-form label,
 .admin-form input,
 .admin-form select,

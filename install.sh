@@ -9,16 +9,18 @@ fi
 echo "Aktualisiere Paketquellen..."
 apt update
 
-echo "Installiere Python3 und pip..."
-apt install -y python3 python3-pip
+echo "Installiere Python3, venv und pip..."
+apt install -y python3 python3-pip python3-venv
 
 echo "Installiere Python-Abhängigkeiten..."
-python3 -m pip install --upgrade pip
-python3 -m pip install -r "$(dirname "$0")/requirements.txt"
-
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 MEDIA_DIR="$SCRIPT_DIR/media"
 MAPPINGS_FILE="$SCRIPT_DIR/mappings.json"
+VENV_DIR="$SCRIPT_DIR/.venv"
+
+python3 -m venv "$VENV_DIR"
+"$VENV_DIR/bin/python" -m pip install --upgrade pip
+"$VENV_DIR/bin/pip" install -r "$SCRIPT_DIR/requirements.txt"
 
 mkdir -p "$MEDIA_DIR"
 if [ ! -f "$MAPPINGS_FILE" ]; then
@@ -40,7 +42,7 @@ After=network.target
 [Service]
 Type=simple
 WorkingDirectory=$SCRIPT_DIR
-ExecStart=/usr/bin/env python3 $SCRIPT_DIR/app.py
+ExecStart=$VENV_DIR/bin/python $SCRIPT_DIR/app.py
 Restart=always
 RestartSec=5
 StandardOutput=journal

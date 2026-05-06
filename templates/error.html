@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Fehler</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+<body class="display-body">
+  <div class="display-container empty-state">
+    <div class="empty-card">
+      <h2>Interner Fehler</h2>
+      <p>{{ error_message }}</p>
+      <p><strong>Fehlerlog:</strong> {{ error_log }}</p>
+      <p>Auf dem Raspberry Pi kannst du das Log zum Beispiel so ansehen:</p>
+      <p><code>tail -n 100 {{ error_log }}</code></p>
+    </div>
+  </div>
+</body>
+</html>

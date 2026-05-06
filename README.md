@@ -126,6 +126,12 @@ Das Skript:
 - zeigt danach die Display- und Admin-Links an
 - zeichnet einen QR-Code fuer die Display-Seite direkt in die Bash
 
+Fuer spaetere Updates gibt es ein separates Skript:
+
+```bash
+bash update.sh
+```
+
 ### 9. Im Browser oeffnen
 
 Nach erfolgreicher Installation siehst du im Terminal so etwas in der Art:
@@ -217,15 +223,21 @@ Darueber siehst du auch nach einem normalen automatischen Start wieder:
 
 ## Update-Prozess
 
-Wenn du spaeter Aenderungen aus GitHub uebernehmen willst:
+Wenn du spaeter Aenderungen aus GitHub uebernehmen willst, nutze das Update-Skript:
 
 ```bash
 cd ~/rpi_barcode_webserver
-git pull
-sudo bash install.sh
+bash update.sh
 ```
 
-Auch bei diesem Update-Lauf werden die aktuell erkannte IP und der QR-Code wieder neu ausgegeben.
+`update.sh`:
+
+- holt den neuesten Stand aus GitHub fuer den aktuellen Branch
+- nutzt nur Fast-Forward-Updates, damit nichts still ueberschrieben wird
+- startet danach automatisch `install.sh`
+- gibt am Ende wieder die erkannte IP und den QR-Code aus
+
+Wichtig: `update.sh` bitte ohne `sudo` starten. Das Skript fordert `sudo` nur fuer den Installationsschritt an.
 
 ## Projektstruktur
 
@@ -247,3 +259,11 @@ Bei Problemen helfen meist diese beiden Checks zuerst:
 sudo systemctl status rpi_barcode_webserver.service
 journalctl -u rpi_barcode_webserver.service -n 100
 ```
+
+Zusatzlich schreibt die Anwendung unerwartete Fehler in eine Logdatei:
+
+```bash
+tail -n 100 ~/rpi_barcode_webserver/logs/error.log
+```
+
+Das Fehlerlog liegt im Projekt unter `logs/error.log` und enthaelt Stacktraces fuer interne Serverfehler.

@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 
 import json
+import logging
 import os
 import socket
 from datetime import datetime, timedelta, timezone
+from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
 from flask import Flask, flash, jsonify, redirect, render_template, request, send_from_directory, url_for
@@ -26,6 +28,7 @@ def default_settings():
 
 def ensure_environment():
     config.MEDIA_DIR.mkdir(parents=True, exist_ok=True)
+    config.LOG_DIR.mkdir(parents=True, exist_ok=True)
     if not config.MAPPINGS_FILE.exists():
         config.MAPPINGS_FILE.write_text(json.dumps({}, indent=2), encoding="utf-8")
     if not config.STATUS_FILE.exists():
@@ -35,6 +38,27 @@ def ensure_environment():
 
 
 ensure_environment()
+
+
+def configure_logging():
+    if any(getattr(handler, "baseFilename", None) == str(config.ERROR_LOG_FILE) for handler in app.logger.handlers):
+        return
+
+    file_handler = RotatingFileHandler(
+        config.ERROR_LOG_FILE,
+        maxBytes=1_000_000,
+        backupCount=3,
+        encoding="utf-8",
+    )
+    file_handler.setLevel(logging.ERROR)
+    file_handler.setFormatter(logging.Formatter(
+        "%(asctime)s %(levelname)s %(message)s [in %(pathname)s:%(lineno)d]"
+    ))
+    app.logger.addHandler(file_handler)
+    app.logger.setLevel(logging.INFO)
+
+
+configure_logging()
 
 
 def load_mappings():
@@ -425,6 +449,24 @@ def admin_delete():
     else:
         flash("Zuordnung nicht gefunden.", "error")
     return redirect(url_for("admin"))
+
+
+@app.errorhandler(Exception)
+def handle_unexpected_error(error):
+    app.logger.exception(
+        "Unhandled exception for %s %s from %s",
+        request.method,
+        request.path,
+        request.remote_addr,
+    )
+    return (
+        render_template(
+            "error.html",
+            error_message="Ein unerwarteter Fehler ist aufgetreten. Details stehen im Fehlerlog.",
+            error_log=str(config.ERROR_LOG_FILE),
+        ),
+        500,
+    )
 
 
 if __name__ == "__main__":

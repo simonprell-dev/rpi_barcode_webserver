@@ -3,6 +3,7 @@ media/
 mappings.json
 status.json
 settings.json
+logs/
 app.py.local-backup
 __pycache__/
 *.pyc

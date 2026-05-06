@@ -14,6 +14,7 @@ apt install -y python3 python3-pip python3-venv qrencode
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 MEDIA_DIR="$SCRIPT_DIR/media"
+LOG_DIR="$SCRIPT_DIR/logs"
 MAPPINGS_FILE="$SCRIPT_DIR/mappings.json"
 VENV_DIR="$SCRIPT_DIR/.venv"
 
@@ -23,6 +24,7 @@ python3 -m venv "$VENV_DIR"
 "$VENV_DIR/bin/pip" install -r "$SCRIPT_DIR/requirements.txt"
 
 mkdir -p "$MEDIA_DIR"
+mkdir -p "$LOG_DIR"
 if [ ! -f "$MAPPINGS_FILE" ]; then
   python3 - <<PY
 from pathlib import Path
